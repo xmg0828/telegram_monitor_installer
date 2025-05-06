@@ -1,6 +1,7 @@
 #!/bin/bash
 
 # Telegram 群组监控转发工具安装脚本
+# 作者: 沙龙新加坡
 
 # 设置颜色
 GREEN='\033[0;32m'
@@ -80,7 +81,7 @@ telethon>=1.29.2
 python-telegram-bot>=20.0
 EOF
 
-# 创建配置文件
+# 创建配置文件模板
 echo -e "${YELLOW}创建配置文件模板...${NC}"
 cat > $WORK_DIR/config.example.json << 'EOF'
 {
@@ -482,20 +483,6 @@ ehthumbs.db
 Thumbs.db
 EOF
 
-# 创建示例配置文件
-echo -e "${YELLOW}创建用户配置文件...${NC}"
-cat > $WORK_DIR/config.json << 'EOF'
-{
-  "api_id": "YOUR_API_ID",
-  "api_hash": "YOUR_API_HASH",
-  "bot_token": "YOUR_BOT_TOKEN",
-  "target_ids": [-1002243984935, 165067365],
-  "keywords": ["yxvm", "瓦工", "dmit"],
-  "watch_ids": ["nodeseekc"],
-  "whitelist": [165067365]
-}
-EOF
-
 # 设置权限
 echo -e "${YELLOW}设置文件权限...${NC}"
 chmod +x $WORK_DIR/channel_forwarder.py
@@ -545,14 +532,96 @@ systemctl daemon-reload
 systemctl enable channel_forwarder.service
 systemctl enable bot_manager.service
 
+# 交互式配置部分
+echo ""
+echo -e "${GREEN}现在进行Telegram API配置${NC}"
+echo ""
+
+# 获取Telegram API ID
+echo -e "${YELLOW}请输入您的 Telegram API ID${NC}"
+echo "可从 https://my.telegram.org/apps 获取"
+read -p "API ID: " API_ID
+
+# 获取Telegram API Hash
+echo -e "${YELLOW}请输入您的 Telegram API Hash${NC}"
+read -p "API Hash: " API_HASH
+
+# 获取Bot Token
+echo -e "${YELLOW}请输入您的 Telegram Bot Token${NC}"
+echo "从 BotFather 获取"
+read -p "Bot Token: " BOT_TOKEN
+
+# 获取管理员ID
+echo -e "${YELLOW}请输入管理员的 Telegram 用户ID${NC}"
+read -p "管理员ID: " ADMIN_ID
+
+# 设置监控关键词
+echo -e "${YELLOW}请输入要监控的关键词 (用空格分隔)${NC}"
+read -p "关键词: " KEYWORDS
+KEYWORDS_ARRAY=(${KEYWORDS})
+KEYWORDS_JSON="["
+for i in "${!KEYWORDS_ARRAY[@]}"; do
+  KEYWORDS_JSON+="\"${KEYWORDS_ARRAY[i]}\""
+  if [ $i -lt $((${#KEYWORDS_ARRAY[@]}-1)) ]; then
+    KEYWORDS_JSON+=", "
+  fi
+done
+KEYWORDS_JSON+="]"
+
+# 设置监控的群组/频道
+echo -e "${YELLOW}请输入要监控的群组或频道 (用空格分隔，可以是用户名或ID)${NC}"
+read -p "监控源: " WATCH_IDS
+WATCH_ARRAY=(${WATCH_IDS})
+WATCH_JSON="["
+for i in "${!WATCH_ARRAY[@]}"; do
+  # 检查是否为数字ID
+  if [[ ${WATCH_ARRAY[i]} =~ ^-?[0-9]+$ ]]; then
+    WATCH_JSON+="${WATCH_ARRAY[i]}"
+  else
+    WATCH_JSON+="\"${WATCH_ARRAY[i]}\""
+  fi
+  if [ $i -lt $((${#WATCH_ARRAY[@]}-1)) ]; then
+    WATCH_JSON+=", "
+  fi
+done
+WATCH_JSON+="]"
+
+# 设置转发目标
+echo -e "${YELLOW}请输入消息转发目标 (用空格分隔，可以是用户ID或群组ID)${NC}"
+read -p "转发目标: " TARGET_IDS
+TARGET_ARRAY=(${TARGET_IDS})
+TARGET_JSON="["
+for i in "${!TARGET_ARRAY[@]}"; do
+  # 检查是否为数字ID
+  if [[ ${TARGET_ARRAY[i]} =~ ^-?[0-9]+$ ]]; then
+    TARGET_JSON+="${TARGET_ARRAY[i]}"
+  else
+    TARGET_JSON+="\"${TARGET_ARRAY[i]}\""
+  fi
+  if [ $i -lt $((${#TARGET_ARRAY[@]}-1)) ]; then
+    TARGET_JSON+=", "
+  fi
+done
+TARGET_JSON+="]"
+
+# 创建配置文件
+cat > $WORK_DIR/config.json << EOF
+{
+  "api_id": "${API_ID}",
+  "api_hash": "${API_HASH}",
+  "bot_token": "${BOT_TOKEN}",
+  "target_ids": ${TARGET_JSON},
+  "keywords": ${KEYWORDS_JSON},
+  "watch_ids": ${WATCH_JSON},
+  "whitelist": [${ADMIN_ID}]
+}
+EOF
+
 # 显示完成信息
 echo ""
-echo -e "${GREEN}✅ 安装完成！${NC}"
+echo -e "${GREEN}✅ 配置完成！${NC}"
 echo ""
-echo -e "${YELLOW}请编辑配置文件并填写您的API信息:${NC}"
-echo -e "  ${BLUE}nano ${WORK_DIR}/config.json${NC}"
-echo ""
-echo -e "${YELLOW}然后运行以下命令登录Telegram账号:${NC}"
+echo -e "${YELLOW}现在运行以下命令登录Telegram账号:${NC}"
 echo -e "  ${BLUE}cd ${WORK_DIR} && python3 channel_forwarder.py${NC}"
 echo ""
 echo -e "${YELLOW}登录成功后，启动服务:${NC}"
